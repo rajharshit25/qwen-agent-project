@@ -85,6 +85,8 @@ def test_agent_stops_repeated_tool_calls():
         result = await AgentEngine(llm=llm).run("Calculate 2 + 2.")
 
         assert result["status"] == "completed"
+        assert len(llm.calls) == 3
+        assert result["answer"] == "The result is 4."
         assert any(
             entry.get("reason") == "Duplicate tool call prevented"
             for entry in result["trace"]
@@ -119,6 +121,8 @@ def test_agent_can_use_two_different_tools():
         )
 
         assert result["status"] == "completed"
+        
+        
         assert result["answer"] == (
             "The calculation is 4, and the text contains 4 words."
         )
