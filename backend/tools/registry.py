@@ -1,5 +1,5 @@
-
-import ast
+﻿import ast
+import math
 import operator
 import re
 from dataclasses import dataclass
@@ -20,10 +20,22 @@ class Tool:
 
 def calculator(args):
     expression = args.get("expression", "")
-    if not isinstance(expression, str) or len(expression) > 200:
-        raise ValueError("expression must be a string up to 200 characters")
 
-    tree = ast.parse(expression, mode="eval")
+    if (
+        not isinstance(expression, str)
+        or not expression.strip()
+        or len(expression) > 200
+    ):
+        raise ValueError(
+            "expression must be a string; a non-empty string "
+            "up to 200 characters is required"
+        )
+
+    try:
+        tree = ast.parse(expression, mode="eval")
+    except SyntaxError as exc:
+        raise ValueError("Invalid arithmetic expression") from exc
+
     ops = {
         ast.Add: operator.add,
         ast.Sub: operator.sub,
@@ -40,10 +52,13 @@ def calculator(args):
         if isinstance(node, ast.Expression):
             return visit(node.body)
 
-        if isinstance(node, ast.Constant) and isinstance(
-            node.value, (int, float)
-        ) and not isinstance(node.value, bool):
+        if (
+            isinstance(node, ast.Constant)
+            and isinstance(node.value, (int, float))
+            and not isinstance(node.value, bool)
+        ):
             result = node.value
+
         elif isinstance(node, ast.BinOp) and type(node.op) in ops:
             left = visit(node.left)
             right = visit(node.right)
@@ -54,14 +69,20 @@ def calculator(args):
             if isinstance(node.op, ast.Pow) and left == 0 and right < 0:
                 raise ValueError("Division by zero")
 
-            result = ops[type(node.op)](left, right)
+            try:
+                result = ops[type(node.op)](left, right)
+            except (ZeroDivisionError, OverflowError) as exc:
+                raise ValueError("Invalid arithmetic expression") from exc
+
         elif isinstance(node, ast.UnaryOp) and type(node.op) in ops:
             result = ops[type(node.op)](visit(node.operand))
+
         else:
             raise ValueError("Only basic arithmetic is allowed")
 
         if (
             not isinstance(result, (int, float))
+            or not math.isfinite(result)
             or abs(result) > 1e100
         ):
             raise ValueError("Result too large")
@@ -78,12 +99,15 @@ def calculator(args):
 
 def text_parser(args):
     text = args.get("text", "")
+
     if not isinstance(text, str) or len(text) > 12000:
         raise ValueError("text must be <= 12000 chars")
 
     words = re.findall(r"\b[\w'-]+\b", text)
     sentences = [
-        s for s in re.split(r"(?<=[.!?])\s+", text.strip()) if s
+        sentence
+        for sentence in re.split(r"(?<=[.!?])\s+", text.strip())
+        if sentence
     ]
 
     return (
@@ -96,6 +120,7 @@ def text_parser(args):
 
 def webpage_analyzer(args):
     text = args.get("text", "")
+
     if not isinstance(text, str) or len(text) > 12000:
         raise ValueError("text must be <= 12000 chars")
 
@@ -107,10 +132,18 @@ def webpage_analyzer(args):
 
 def web_search(args):
     query = args.get("query", "")
-    if not isinstance(query, str) or not query.strip() or len(query) > 500:
-        raise ValueError("query must be a non-empty string up to 500 characters")
+
+    if (
+        not isinstance(query, str)
+        or not query.strip()
+        or len(query) > 500
+    ):
+        raise ValueError(
+            "query must be a non-empty string up to 500 characters"
+        )
 
     api_key = settings.brave_search_api_key.strip()
+
     if not api_key:
         return (
             "Live web search is currently unavailable because no search API "
@@ -180,6 +213,7 @@ def web_search(args):
                 and parsed_url.username is None
                 and parsed_url.password is None
             )
+            _ = parsed_url.port
         except ValueError:
             valid_url = False
 
@@ -231,6 +265,8 @@ TOOLS = {
 def run_tool(name, args):
     if name not in TOOLS:
         raise ValueError(f"Tool not allowlisted: {name}")
+
     if not isinstance(args, dict):
         raise ValueError("Tool arguments must be an object")
+
     return TOOLS[name].function(args)
