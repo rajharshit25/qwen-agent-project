@@ -362,3 +362,47 @@ def test_agent_does_not_claim_search_results_when_search_is_unavailable():
         assert "unavailable" in result["answer"].lower()
 
     asyncio.run(scenario())
+
+def test_agent_handles_llm_failure_during_step_limit_response():
+    class FailingFallbackLLM:
+        def __init__(self):
+            self.calls = 0
+
+        async def generate(
+            self,
+            prompt,
+            system="You are a helpful assistant.",
+            format=None,
+        ):
+            self.calls += 1
+            if self.calls == 1:
+                return json.dumps({
+                    "action": "tool",
+                    "tool": "calculator",
+                    "arguments": {"expression": "2 + 2"},
+                    "explanation": "Calculate the result.",
+                })
+            if self.calls == 2:
+                return json.dumps({
+                    "action": "tool",
+                    "tool": "text_parser",
+                    "arguments": {"text": "hello world"},
+                    "explanation": "Count the words.",
+                })
+            raise RuntimeError("Simulated model connection failure")
+
+    async def scenario():
+        llm = FailingFallbackLLM()
+
+        result = await AgentEngine(llm=llm, max_steps=2).run(
+            "Calculate 2 + 2 and count the words in hello world."
+        )
+
+        assert result["status"] == "llm_error"
+        assert "retry" in result["answer"].lower()
+        assert any(
+            entry.get("status") == "error"
+            for entry in result["trace"]
+        )
+
+    asyncio.run(scenario())

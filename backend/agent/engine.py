@@ -89,11 +89,31 @@ class AgentEngine:
                 raw = forced_action_raw
                 forced_action_raw = None
             else:
-                raw = await self.llm.generate(
-                    prompt,
-                    system=SYSTEM,
-                    format="json",
-                )
+                # Handle model failures without changing existing
+                # action validation or tool-execution behavior.
+                try:
+                    raw = await self.llm.generate(
+                        prompt,
+                        system=SYSTEM,
+                        format="json",
+                    )
+                except Exception as exc:
+                    error_message = str(exc)[:300]
+                    trace.append({
+                        "step": step,
+                        "status": "error",
+                        "reason": "Model response generation failed",
+                        "detail": error_message,
+                    })
+                    return {
+                        "answer": (
+                            "I couldn't complete the request because the "
+                            "AI model encountered an error. Please check "
+                            "that Ollama is running and try again."
+                        ),
+                        "trace": trace,
+                        "status": "llm_error",
+                    }
 
             try:
                 match = re.search(r"\{.*\}", raw, re.S)
@@ -272,7 +292,6 @@ class AgentEngine:
                         "choose a different tool for any remaining task."
                     ),
                 })
-
                 continue
 
             seen_tool_calls.add(call_signature)
@@ -332,17 +351,35 @@ class AgentEngine:
                 })
 
         # Step limit reached: report only what the observations support.
-        answer = await self.llm.generate(
-            "Answer the user using only these observations. "
-            "Acknowledge gaps and do not claim unverified success.\n"
-            f"Goal: {goal}\n"
-            "Observations: "
-            + json.dumps(observations, ensure_ascii=False),
-            system=(
-                "Be accurate. Never claim a tool succeeded unless "
-                "observations confirm it."
-            ),
-        )
+        try:
+            answer = await self.llm.generate(
+                "Answer the user using only these observations. "
+                "Acknowledge gaps and do not claim unverified success.\n"
+                f"Goal: {goal}\n"
+                "Observations: "
+                + json.dumps(observations, ensure_ascii=False),
+                system=(
+                    "Be accurate. Never claim a tool succeeded unless "
+                    "observations confirm it."
+                ),
+            )
+        except Exception as exc:
+            error_message = str(exc)[:300]
+            trace.append({
+                "step": self.max_steps + 1,
+                "status": "error",
+                "reason": "Step-limit response generation failed",
+                "detail": error_message,
+            })
+            return {
+                "answer": (
+                    "I couldn't complete the final response because the "
+                    "AI model encountered an error. Please check that "
+                    "Ollama is running and retry the request."
+                ),
+                "trace": trace,
+                "status": "llm_error",
+            }
 
         return {
             "answer": answer,
