@@ -83,7 +83,11 @@ def test_agent_stops_repeated_tool_calls():
         ])
 
         result = await AgentEngine(llm=llm).run("Calculate 2 + 2.")
-
+        assert sum(
+            entry.get("status") == "success"
+            and entry.get("tool") == "calculator"
+            for entry in result["trace"]
+        ) == 1
         assert result["status"] == "completed"
         assert len(llm.calls) == 3
         assert result["answer"] == "The result is 4."
