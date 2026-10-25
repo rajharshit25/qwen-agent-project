@@ -91,3 +91,41 @@ def test_agent_stops_repeated_tool_calls():
         )
 
     asyncio.run(scenario())
+
+def test_agent_can_use_two_different_tools():
+    async def scenario():
+        llm = FakeLLM([
+            json.dumps({
+                "action": "tool",
+                "tool": "calculator",
+                "arguments": {"expression": "2 + 2"},
+                "explanation": "Calculate the result.",
+            }),
+            json.dumps({
+                "action": "tool",
+                "tool": "text_parser",
+                "arguments": {"text": "four is the answer"},
+                "explanation": "Count the words in the supplied text.",
+            }),
+            json.dumps({
+                "action": "final",
+                "answer": "The calculation is 4, and the text contains 4 words.",
+                "explanation": "Both tool results are available.",
+            }),
+        ])
+
+        result = await AgentEngine(llm=llm).run(
+            "Calculate 2 + 2, then count the words in 'four is the answer'."
+        )
+
+        assert result["status"] == "completed"
+        assert result["answer"] == (
+            "The calculation is 4, and the text contains 4 words."
+        )
+        assert [entry["tool"] for entry in result["trace"]
+                if entry.get("status") == "success"] == [
+            "calculator", "text_parser"
+        ]
+
+    asyncio.run(scenario())
+
