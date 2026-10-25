@@ -47,3 +47,26 @@ def test_agent_rejects_plain_text_model_response():
         assert result["trace"][0]["reason"] == "Invalid action schema"
 
     asyncio.run(scenario())
+
+
+class IncompleteJSONResponseLLM:
+    async def generate(
+        self,
+        prompt,
+        system="You are a helpful assistant.",
+        format=None,
+    ):
+        return '{"action": "tool", "tool":'
+
+
+def test_agent_rejects_incomplete_json_model_response():
+    async def scenario():
+        result = await AgentEngine(llm=IncompleteJSONResponseLLM()).run(
+            "Calculate 2 + 2."
+        )
+
+        assert result["status"] == "invalid_action"
+        assert result["trace"][0]["status"] == "rejected"
+        assert result["trace"][0]["reason"] == "Invalid action schema"
+
+    asyncio.run(scenario())
