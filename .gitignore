@@ -6,3 +6,6 @@ __pycache__/
 data/
 .vscode/
 .DS_Store
+
+# Local backup files
+*.bak
