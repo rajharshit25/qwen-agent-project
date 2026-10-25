@@ -175,3 +175,41 @@ def test_web_search_rejects_invalid_results_format(monkeypatch):
 
     with pytest.raises(ValueError, match="invalid results format"):
         run_tool("web_search", {"query": "Python"})
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        None,
+        {"web": None},
+        {"web": "invalid"},
+    ],
+)
+def test_web_search_rejects_invalid_response_structure(
+    monkeypatch, payload
+):
+    monkeypatch.setattr(
+        registry,
+        "settings",
+        SimpleNamespace(
+            brave_search_api_key="test-key",
+            web_search_timeout_seconds=1,
+            web_search_max_results=5,
+        ),
+    )
+
+    class FakeResponse:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return payload
+
+    monkeypatch.setattr(
+        registry.httpx,
+        "get",
+        lambda *args, **kwargs: FakeResponse(),
+    )
+
+    with pytest.raises(ValueError, match="invalid response format"):
+        run_tool("web_search", {"query": "Python"})
