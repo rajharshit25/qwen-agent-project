@@ -49,6 +49,7 @@ def test_web_search_without_api_key_returns_friendly_message(monkeypatch):
     assert "no search API key is configured" in result
     assert "No external search was performed" in result
 
+
 def test_web_search_success_and_result_limit(monkeypatch):
     monkeypatch.setattr(
         registry,
@@ -145,4 +146,32 @@ def test_web_search_provider_error_is_propagated(monkeypatch):
     )
 
     with pytest.raises(RuntimeError, match="provider failure"):
+        run_tool("web_search", {"query": "Python"})
+
+
+def test_web_search_rejects_invalid_results_format(monkeypatch):
+    monkeypatch.setattr(
+        registry,
+        "settings",
+        SimpleNamespace(
+            brave_search_api_key="test-key",
+            web_search_timeout_seconds=1,
+            web_search_max_results=5,
+        ),
+    )
+
+    class FakeResponse:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"web": {"results": "not-a-list"}}
+
+    monkeypatch.setattr(
+        registry.httpx,
+        "get",
+        lambda *args, **kwargs: FakeResponse(),
+    )
+
+    with pytest.raises(ValueError, match="invalid results format"):
         run_tool("web_search", {"query": "Python"})
