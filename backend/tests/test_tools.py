@@ -191,3 +191,51 @@ def test_web_search_skips_non_dictionary_results(monkeypatch):
     assert "Python" in result
     assert "https://www.python.org/" in result
     assert "No usable web search results" not in result
+
+
+@pytest.mark.parametrize(
+    "unsafe_url",
+    [
+        "file:///etc/passwd",
+        "javascript:alert(1)",
+        "http://user:password@example.com/",
+        "http://[invalid",
+    ],
+)
+def test_web_search_skips_unsafe_urls(monkeypatch, unsafe_url):
+    monkeypatch.setattr(
+        registry,
+        "settings",
+        SimpleNamespace(
+            brave_search_api_key="test-key",
+            web_search_timeout_seconds=1,
+            web_search_max_results=5,
+        ),
+    )
+
+    class FakeResponse:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {
+                "web": {
+                    "results": [
+                        {
+                            "title": "Unsafe result",
+                            "url": unsafe_url,
+                            "description": "Should be skipped",
+                        }
+                    ]
+                }
+            }
+
+    monkeypatch.setattr(
+        registry.httpx,
+        "get",
+        lambda *args, **kwargs: FakeResponse(),
+    )
+
+    result = run_tool("web_search", {"query": "Python"})
+
+    assert result == "No usable web search results were returned."
