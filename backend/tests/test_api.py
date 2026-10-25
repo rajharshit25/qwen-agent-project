@@ -29,3 +29,10 @@ def test_document_request_rejects_whitespace_only_name():
 def test_chat_request_rejects_message_over_12000_characters():
     with pytest.raises(ValidationError):
         ChatRequest(message="a" * 12001)
+
+
+def test_document_request_rejects_text_over_100000_characters():
+    from backend.api.routes import DocumentRequest
+
+    with pytest.raises(ValidationError):
+        DocumentRequest(name="notes.txt", text="a" * 100001)
