@@ -1,5 +1,4 @@
-
-import os
+﻿import os
 from dataclasses import dataclass
 from dotenv import load_dotenv
 
@@ -27,6 +26,13 @@ class Settings:
         os.getenv("MAX_REQUEST_CHARS", "12000")
     )
     cors_origins: str = os.getenv("CORS_ORIGINS", "")
+    brave_search_api_key: str = os.getenv("BRAVE_SEARCH_API_KEY", "")
+    web_search_timeout_seconds: float = float(
+        os.getenv("WEB_SEARCH_TIMEOUT_SECONDS", "8")
+    )
+    web_search_max_results: int = int(
+        os.getenv("WEB_SEARCH_MAX_RESULTS", "5")
+    )
 
     def __post_init__(self):
         if not self.ollama_base_url.strip():
@@ -46,6 +52,16 @@ class Settings:
 
         if not self.database_path.strip():
             raise ValueError("DATABASE_PATH must not be empty")
+
+        if self.web_search_timeout_seconds <= 0:
+            raise ValueError(
+                "WEB_SEARCH_TIMEOUT_SECONDS must be greater than 0"
+            )
+
+        if not 1 <= self.web_search_max_results <= 10:
+            raise ValueError(
+                "WEB_SEARCH_MAX_RESULTS must be between 1 and 10"
+            )
 
 
 settings = Settings()
