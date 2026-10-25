@@ -36,3 +36,38 @@ def test_document_request_rejects_text_over_100000_characters():
 
     with pytest.raises(ValidationError):
         DocumentRequest(name="notes.txt", text="a" * 100001)
+def test_agent_returns_503_when_model_generation_fails(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    import backend.api.routes as routes
+    from backend.main import app
+
+    class FailingAgent:
+        async def run(self, goal, page_text=""):
+            return {
+                "answer": (
+                    "I couldn't complete the request because "
+                    "the AI model encountered an error. "
+                    "Please check that Ollama is running and try again."
+                ),
+                "trace": [
+                    {
+                        "step": 1,
+                        "status": "error",
+                        "reason": "Model response generation failed",
+                    }
+                ],
+                "status": "llm_error",
+            }
+
+    monkeypatch.setattr(routes, "AgentEngine", FailingAgent)
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/agent",
+            json={"goal": "Calculate 2 + 2."},
+        )
+
+    assert response.status_code == 503
+    assert response.json()["status"] == "llm_error"
+    assert "trace" in response.json()
