@@ -1,5 +1,4 @@
-
-import asyncio
+﻿import asyncio
 import json
 
 from backend.agent.engine import AgentEngine
@@ -47,13 +46,44 @@ def test_agent_executes_calculator_and_returns_answer():
         assert result["trace"][0]["status"] == "success"
         assert result["trace"][0]["result_preview"] == "1000"
         assert llm.calls[0]["format"] == "json"
-
-        # A normal successful tool call should allow a final answer.
         assert len(llm.calls) == 2
-        assert len([
-            item for item in result["trace"]
-            if item.get("status") == "success"
-        ]) == 1
+        assert sum(
+            item.get("status") == "success"
+            and item.get("tool") == "calculator"
+            for item in result["trace"]
+        ) == 1
+
+    asyncio.run(scenario())
+
+
+def test_agent_returns_final_answer_after_one_calculator_call():
+    async def scenario():
+        llm = FakeLLM([
+            json.dumps({
+                "action": "tool",
+                "tool": "calculator",
+                "arguments": {"expression": "125 * 8"},
+                "explanation": "Calculate the multiplication.",
+            }),
+            json.dumps({
+                "action": "final",
+                "answer": "The result is 1000.",
+                "explanation": "The calculator result answers the goal.",
+            }),
+        ])
+
+        result = await AgentEngine(llm=llm).run(
+            "Calculate 125 multiplied by 8."
+        )
+
+        assert result["status"] == "completed"
+        assert result["answer"] == "The result is 1000."
+        assert len(llm.calls) == 2
+        assert sum(
+            item.get("status") == "success"
+            and item.get("tool") == "calculator"
+            for item in result["trace"]
+        ) == 1
 
     asyncio.run(scenario())
 
@@ -83,15 +113,20 @@ def test_agent_stops_repeated_tool_calls():
             "explanation": "Calculate two plus two.",
         })
 
+        final_action = json.dumps({
+            "action": "final",
+            "answer": "The result is 4.",
+            "explanation": "The calculator result is already available.",
+        })
+
         llm = FakeLLM([
             tool_action,
             tool_action,
-            "The result is 4.",
+            final_action,
         ])
 
         result = await AgentEngine(llm=llm).run("Calculate 2 + 2.")
 
-        # The calculator must execute only once.
         assert sum(
             entry.get("status") == "success"
             and entry.get("tool") == "calculator"
@@ -102,7 +137,6 @@ def test_agent_stops_repeated_tool_calls():
         assert len(llm.calls) == 3
         assert result["answer"] == "The result is 4."
 
-        # The duplicate must be rejected and not executed again.
         assert any(
             entry.get("reason") == "Duplicate tool call prevented"
             for entry in result["trace"]
@@ -232,6 +266,55 @@ def test_agent_continues_after_tool_execution_error(monkeypatch):
         assert any(
             entry.get("tool") == "text_parser"
             and entry.get("status") == "success"
+            for entry in result["trace"]
+        )
+
+    asyncio.run(scenario())
+
+def test_agent_recovers_from_duplicate_and_completes_remaining_task():
+    async def scenario():
+        calculator_action = json.dumps({
+            "action": "tool",
+            "tool": "calculator",
+            "arguments": {"expression": "24 * 7"},
+            "explanation": "Calculate the result.",
+        })
+
+        parser_action = json.dumps({
+            "action": "tool",
+            "tool": "text_parser",
+            "arguments": {"text": "The local agent works correctly."},
+            "explanation": "Count the words.",
+        })
+
+        final_action = json.dumps({
+            "action": "final",
+            "answer": "The calculation is 168. The text contains 5 words.",
+            "explanation": "Both tasks were executed.",
+        })
+
+        llm = FakeLLM([
+            calculator_action,
+            calculator_action,
+            parser_action,
+            final_action,
+        ])
+
+        result = await AgentEngine(llm=llm).run(
+            "Calculate 24 * 7, then count the words in "
+            "'The local agent works correctly.'"
+        )
+
+        successful_tools = [
+            entry["tool"]
+            for entry in result["trace"]
+            if entry.get("status") == "success"
+        ]
+
+        assert result["status"] == "completed"
+        assert successful_tools == ["calculator", "text_parser"]
+        assert any(
+            entry.get("reason") == "Duplicate tool call prevented"
             for entry in result["trace"]
         )
 
