@@ -1,6 +1,6 @@
 import uuid
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from backend.config import settings
 from backend.llm.ollama_client import OllamaClient, OllamaError
 from backend.agent.engine import AgentEngine
@@ -10,6 +10,13 @@ router = APIRouter()
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1,max_length=12000)
     session_id: str | None = Field(default=None, max_length=200)
+
+    @field_validator("message")
+    @classmethod
+    def message_must_not_be_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Message must not be blank.")
+        return value
 class AgentRequest(BaseModel):
     goal: str = Field(min_length=1,max_length=12000)
     page_text: str = Field(default="",max_length=12000)
@@ -18,6 +25,13 @@ class TextRequest(BaseModel):
 class DocumentRequest(BaseModel):
     name: str = Field(min_length=1,max_length=200)
     text: str = Field(min_length=1,max_length=100000)
+
+    @field_validator("name")
+    @classmethod
+    def name_must_not_be_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Document name must not be blank.")
+        return value
 
 @router.get("/health")
 async def api_health():
