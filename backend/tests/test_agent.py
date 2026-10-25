@@ -48,6 +48,13 @@ def test_agent_executes_calculator_and_returns_answer():
         assert result["trace"][0]["result_preview"] == "1000"
         assert llm.calls[0]["format"] == "json"
 
+        # A normal successful tool call should allow a final answer.
+        assert len(llm.calls) == 2
+        assert len([
+            item for item in result["trace"]
+            if item.get("status") == "success"
+        ]) == 1
+
     asyncio.run(scenario())
 
 
@@ -84,6 +91,7 @@ def test_agent_stops_repeated_tool_calls():
 
         result = await AgentEngine(llm=llm).run("Calculate 2 + 2.")
 
+        # The calculator must execute only once.
         assert sum(
             entry.get("status") == "success"
             and entry.get("tool") == "calculator"
@@ -93,6 +101,8 @@ def test_agent_stops_repeated_tool_calls():
         assert result["status"] == "completed"
         assert len(llm.calls) == 3
         assert result["answer"] == "The result is 4."
+
+        # The duplicate must be rejected and not executed again.
         assert any(
             entry.get("reason") == "Duplicate tool call prevented"
             for entry in result["trace"]
@@ -112,8 +122,8 @@ def test_agent_can_use_two_different_tools():
             }),
             json.dumps({
                 "action": "tool",
-                "arguments": {"text": "four is the answer"},
                 "tool": "text_parser",
+                "arguments": {"text": "four is the answer"},
                 "explanation": "Count the words in the supplied text.",
             }),
             json.dumps({
@@ -172,6 +182,7 @@ def test_agent_stops_at_configured_step_limit():
 
     asyncio.run(scenario())
 
+
 def test_agent_continues_after_tool_execution_error(monkeypatch):
     import backend.agent.engine as engine_module
 
@@ -225,4 +236,3 @@ def test_agent_continues_after_tool_execution_error(monkeypatch):
         )
 
     asyncio.run(scenario())
-
