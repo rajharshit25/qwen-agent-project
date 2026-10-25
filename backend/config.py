@@ -1,5 +1,6 @@
 ﻿import os
 from dataclasses import dataclass
+from urllib.parse import urlparse
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -35,8 +36,26 @@ class Settings:
     )
 
     def __post_init__(self):
-        if not self.ollama_base_url.strip():
-            raise ValueError("OLLAMA_BASE_URL must not be empty")
+        try:
+            parsed_url = urlparse(self.ollama_base_url.strip())
+            port = parsed_url.port
+        except ValueError as exc:
+            raise ValueError(
+                "OLLAMA_BASE_URL must contain a valid port"
+            ) from exc
+
+        if (
+            parsed_url.scheme not in ("http", "https")
+            or not parsed_url.hostname
+            or parsed_url.username is not None
+            or parsed_url.password is not None
+            or parsed_url.query
+            or parsed_url.fragment
+            or (port is not None and not 1 <= port <= 65535)
+        ):
+            raise ValueError(
+                "OLLAMA_BASE_URL must be a valid HTTP(S) URL without credentials, query, or fragment"
+            )
 
         if not self.ollama_model.strip():
             raise ValueError("OLLAMA_MODEL must not be empty")

@@ -16,6 +16,10 @@ def test_valid_settings_are_accepted():
     ("field", "value", "message"),
     [
         ("ollama_base_url", "   ", "OLLAMA_BASE_URL"),
+        ("ollama_base_url", "file:///tmp/model", "OLLAMA_BASE_URL"),
+        ("ollama_base_url", "ftp://localhost:11434", "OLLAMA_BASE_URL"),
+        ("ollama_base_url", "http://", "OLLAMA_BASE_URL"),
+        ("ollama_base_url", "http://localhost:99999", "OLLAMA_BASE_URL"),
         ("ollama_model", "", "OLLAMA_MODEL"),
         ("ollama_timeout", 0, "OLLAMA_TIMEOUT_SECONDS"),
         ("ollama_timeout", -1, "OLLAMA_TIMEOUT_SECONDS"),
