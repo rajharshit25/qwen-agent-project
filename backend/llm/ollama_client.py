@@ -10,9 +10,11 @@ class OllamaClient:
         self.model = model or settings.ollama_model
         self.timeout = timeout or settings.ollama_timeout
 
-    async def generate(self, prompt: str, system: str = "You are a helpful assistant.") -> str:
+    async def generate(self, prompt: str, system: str = "You are a helpful assistant.", format: str | None = None) -> str:
         payload = {"model": self.model, "system": system, "prompt": prompt, "stream": False,
                    "options": {"temperature": 0.2}}
+        if format is not None:
+            payload["format"] = format
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(f"{self.base_url}/api/generate", json=payload)

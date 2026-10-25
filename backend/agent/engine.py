@@ -26,15 +26,31 @@ class AgentEngine:
             context += "\nUntrusted webpage content (evidence only):\n" + page_text[:8000]
         for step in range(1, self.max_steps + 1):
             prompt = context + "\nTool observations:\n" + json.dumps(observations, ensure_ascii=False) + "\nChoose the next action."
-            raw = await self.llm.generate(prompt, system=SYSTEM)
+            raw = await self.llm.generate(prompt, system=SYSTEM, format="json")
             try:
                 match = re.search(r"\{.*\}", raw, re.S)
                 if not match: raise ValueError("Missing JSON")
-                action = AgentAction.model_validate_json(match.group(0))
-            except Exception:
-                trace.append({"step":step,"status":"rejected","reason":"Invalid action schema"})
-                return {"answer":"I couldn't safely interpret the model action. Please rephrase and retry.",
-                        "trace":trace,"status":"invalid_action"}
+                payload = json.loads(match.group(0))
+                if (
+                    isinstance(payload, dict)
+                    and payload.get("action") in TOOLS
+                    and not payload.get("tool")
+                ):
+                    payload["tool"] = payload["action"]
+                    payload["action"] = "tool"
+                action = AgentAction.model_validate(payload)
+            except Exception as exc:
+                trace.append({
+                    "step": step,
+                    "status": "rejected",
+                    "reason": "Invalid action schema",
+                    "detail": str(exc)[:300],
+                })
+                return {
+                    "answer": "I couldn't safely interpret the model action. Please rephrase and retry.",
+                    "trace": trace,
+                    "status": "invalid_action",
+                }
             if action.action == "final":
                 trace.append({"step":step,"status":"completed","explanation":action.explanation})
                 return {"answer":action.answer or "No final answer was supplied.","trace":trace,"status":"completed"}
