@@ -1,0 +1,36 @@
+import httpx
+from backend.config import settings
+
+class OllamaError(RuntimeError):
+    pass
+
+class OllamaClient:
+    def __init__(self, base_url=None, model=None, timeout=None):
+        self.base_url = (base_url or settings.ollama_base_url).rstrip("/")
+        self.model = model or settings.ollama_model
+        self.timeout = timeout or settings.ollama_timeout
+
+    async def generate(self, prompt: str, system: str = "You are a helpful assistant.") -> str:
+        payload = {"model": self.model, "system": system, "prompt": prompt, "stream": False,
+                   "options": {"temperature": 0.2}}
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.post(f"{self.base_url}/api/generate", json=payload)
+                response.raise_for_status()
+                result = response.json().get("response")
+                if not isinstance(result, str):
+                    raise OllamaError("Ollama returned an unexpected response.")
+                return result.strip()
+        except httpx.HTTPError as exc:
+            raise OllamaError(f"Cannot reach Ollama/model '{self.model}': {exc}") from exc
+
+    async def chat(self, messages: list[dict]) -> str:
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.post(f"{self.base_url}/api/chat",
+                    json={"model": self.model, "messages": messages, "stream": False,
+                          "options": {"temperature": 0.2}})
+                response.raise_for_status()
+                return response.json()["message"]["content"].strip()
+        except (httpx.HTTPError, KeyError, TypeError) as exc:
+            raise OllamaError(f"Ollama chat request failed: {exc}") from exc
