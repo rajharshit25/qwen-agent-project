@@ -319,3 +319,46 @@ def test_agent_recovers_from_duplicate_and_completes_remaining_task():
         )
 
     asyncio.run(scenario())
+
+
+def test_agent_does_not_claim_search_results_when_search_is_unavailable():
+    async def scenario():
+        llm = FakeLLM([
+            json.dumps({
+                "action": "tool",
+                "tool": "web_search",
+                "arguments": {"query": "latest Python release"},
+                "explanation": "Search for current release information.",
+            }),
+            json.dumps({
+                "action": "final",
+                "answer": "The latest Python release is Python 3.12.0.",
+                "explanation": "Answer the question.",
+            }),
+        ])
+
+        import backend.agent.engine as engine_module
+
+        original_run_tool = engine_module.run_tool
+
+        def fake_run_tool(tool_name, arguments):
+            if tool_name == "web_search":
+                return (
+                    "Live web search is currently unavailable because "
+                    "no search API key is configured. No external search "
+                    "was performed."
+                )
+            return original_run_tool(tool_name, arguments)
+
+        engine_module.run_tool = fake_run_tool
+        try:
+            result = await AgentEngine(llm=llm).run(
+                "Search the web for the latest Python release."
+            )
+        finally:
+            engine_module.run_tool = original_run_tool
+
+        assert "Python 3.12.0" not in result["answer"]
+        assert "unavailable" in result["answer"].lower()
+
+    asyncio.run(scenario())

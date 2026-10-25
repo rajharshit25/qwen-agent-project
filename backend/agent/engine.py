@@ -279,6 +279,31 @@ class AgentEngine:
 
             try:
                 result = run_tool(action.tool, action.arguments)
+
+                # Never let the model invent search findings when no
+                # external search was actually performed.
+                if (
+                    action.tool == "web_search"
+                    and "no external search was performed" in result.lower()
+                ):
+                    trace.append({
+                        "step": step,
+                        "tool": action.tool,
+                        "status": "unavailable",
+                        "reason": "No external search was performed",
+                    })
+                    return {
+                        "answer": (
+                            "Live web search is unavailable because no search "
+                            "API key is configured. No external search was "
+                            "performed, so I can't verify the latest Python "
+                            "release. You can configure a search provider or "
+                            "provide source text for me to analyze."
+                        ),
+                        "trace": trace,
+                        "status": "tool_unavailable",
+                    }
+
                 observations.append({
                     "tool": action.tool,
                     "ok": True,
