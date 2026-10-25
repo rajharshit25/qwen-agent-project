@@ -9,7 +9,7 @@ from backend.database.db import add_message, get_history, delete_session, replac
 router = APIRouter()
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1,max_length=12000)
-    session_id: str | None = None
+    session_id: str | None = Field(default=None, max_length=200)
 class AgentRequest(BaseModel):
     goal: str = Field(min_length=1,max_length=12000)
     page_text: str = Field(default="",max_length=12000)
