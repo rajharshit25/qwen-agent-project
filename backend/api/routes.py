@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 from backend.config import settings
 from backend.llm.ollama_client import OllamaClient, OllamaError
 from backend.agent.engine import AgentEngine
-from backend.database.db import add_message, get_history, delete_session, add_document, search_documents
+from backend.database.db import add_message, get_history, delete_session, replace_document, search_documents
 
 router = APIRouter()
 class ChatRequest(BaseModel):
@@ -53,7 +53,7 @@ async def summarize(req: TextRequest):
 @router.post("/documents")
 async def upload_document(req: DocumentRequest):
     chunks = [req.text[i:i+900] for i in range(0,len(req.text),750)]
-    for chunk in chunks: add_document(req.name,chunk)
+    replace_document(req.name, chunks)
     return {"stored_chunks":len(chunks),"name":req.name,"method":"SQLite lexical search (not vector embeddings)"}
 
 @router.post("/documents/query")

@@ -32,7 +32,20 @@ def delete_session(session_id):
     with connect() as db: db.execute("DELETE FROM messages WHERE session_id=?",(session_id,))
 
 def add_document(name, chunk):
-    with connect() as db: db.execute("INSERT INTO documents(name,chunk) VALUES (?,?)",(name,chunk))
+    with connect() as db:
+        db.execute(
+            "INSERT INTO documents(name,chunk) VALUES (?,?)",
+            (name, chunk),
+        )
+
+
+def replace_document(name, chunks):
+    with connect() as db:
+        db.execute("DELETE FROM documents WHERE name = ?", (name,))
+        db.executemany(
+            "INSERT INTO documents(name,chunk) VALUES (?,?)",
+            [(name, chunk) for chunk in chunks],
+        )
 
 def search_documents(query, limit=4):
     terms = [x for x in query.split() if len(x)>2][:8]
