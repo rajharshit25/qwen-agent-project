@@ -14,6 +14,9 @@ class Settings:
     ollama_model: str = os.getenv(
         "OLLAMA_MODEL", "qwen2.5:1.5b"
     )
+    embedding_model: str = os.getenv(
+        "EMBEDDING_MODEL", "nomic-embed-text"
+    )
     ollama_timeout: float = float(
         os.getenv("OLLAMA_TIMEOUT_SECONDS", "120")
     )
@@ -36,6 +39,9 @@ class Settings:
     )
 
     def __post_init__(self):
+        if not self.embedding_model.strip():
+            raise ValueError("EMBEDDING_MODEL must not be empty")
+
         try:
             parsed_url = urlparse(self.ollama_base_url.strip())
             port = parsed_url.port

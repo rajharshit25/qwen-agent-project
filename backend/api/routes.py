@@ -1,4 +1,4 @@
-
+﻿
 import uuid
 
 from fastapi import APIRouter, HTTPException
@@ -117,18 +117,40 @@ async def upload_document(req: DocumentRequest):
         req.text[i : i + 900]
         for i in range(0, len(req.text), 750)
     ]
-    replace_document(req.name, chunks)
+
+    method = "SQLite lexical search (embedding unavailable)"
+    try:
+        embeddings = await OllamaClient().embed(chunks)
+        replace_document(req.name, chunks, embeddings)
+        method = "Ollama embeddings + cosine similarity"
+    except OllamaError:
+        # Keep document upload available if the embedding model is unavailable.
+        replace_document(req.name, chunks)
 
     return {
         "stored_chunks": len(chunks),
         "name": req.name,
-        "method": "SQLite lexical search (not vector embeddings)",
+        "method": method,
     }
 
 
 @router.post("/documents/query")
 async def query_documents(req: TextRequest):
-    found = search_documents(req.text, limit=5)
+    client = OllamaClient()
+    query_embedding = None
+
+    try:
+        query_embeddings = await client.embed([req.text])
+        query_embedding = query_embeddings[0]
+    except OllamaError:
+        # Search falls back to SQLite lexical matching.
+        pass
+
+    found = search_documents(
+        req.text,
+        limit=5,
+        query_embedding=query_embedding,
+    )
     evidence = "\n\n".join(
         f"[{x['name']} chunk {x['id']}]\n{x['content']}"
         for x in found
@@ -138,7 +160,7 @@ async def query_documents(req: TextRequest):
         evidence = "No matching document passages were found."
 
     try:
-        answer = await OllamaClient().generate(
+        answer = await client.generate(
             "Answer using only the evidence below. "
             "If insufficient, say so. Cite source labels.\n"
             f"Evidence:\n{evidence}\nQuestion: {req.text}",
