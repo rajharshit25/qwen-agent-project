@@ -171,3 +171,58 @@ def test_agent_stops_at_configured_step_limit():
         assert len(llm.calls) == 3
 
     asyncio.run(scenario())
+
+def test_agent_continues_after_tool_execution_error(monkeypatch):
+    import backend.agent.engine as engine_module
+
+    async def scenario():
+        first_action = json.dumps({
+            "action": "tool",
+            "tool": "calculator",
+            "arguments": {"expression": "2 + 2"},
+            "explanation": "Calculate the result.",
+        })
+
+        second_action = json.dumps({
+            "action": "tool",
+            "tool": "text_parser",
+            "arguments": {"text": "hello world"},
+            "explanation": "Count the words.",
+        })
+
+        final_action = json.dumps({
+            "action": "final",
+            "answer": "The calculator failed, but the text contains two words.",
+            "explanation": "Report the available evidence.",
+        })
+
+        llm = FakeLLM([first_action, second_action, final_action])
+
+        def fake_run_tool(tool_name, arguments):
+            if tool_name == "calculator":
+                raise RuntimeError("Simulated calculator failure")
+            if tool_name == "text_parser":
+                return "Word count: 2"
+            raise AssertionError(f"Unexpected tool: {tool_name}")
+
+        monkeypatch.setattr(engine_module, "run_tool", fake_run_tool)
+
+        result = await AgentEngine(llm=llm).run(
+            "Calculate 2 + 2 and count the words in hello world."
+        )
+
+        assert result["status"] == "completed"
+        assert "calculator failed" in result["answer"].lower()
+        assert any(
+            entry.get("tool") == "calculator"
+            and entry.get("status") == "error"
+            for entry in result["trace"]
+        )
+        assert any(
+            entry.get("tool") == "text_parser"
+            and entry.get("status") == "success"
+            for entry in result["trace"]
+        )
+
+    asyncio.run(scenario())
+
