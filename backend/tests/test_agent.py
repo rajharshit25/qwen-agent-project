@@ -83,11 +83,13 @@ def test_agent_stops_repeated_tool_calls():
         ])
 
         result = await AgentEngine(llm=llm).run("Calculate 2 + 2.")
+
         assert sum(
             entry.get("status") == "success"
             and entry.get("tool") == "calculator"
             for entry in result["trace"]
         ) == 1
+
         assert result["status"] == "completed"
         assert len(llm.calls) == 3
         assert result["answer"] == "The result is 4."
@@ -97,6 +99,7 @@ def test_agent_stops_repeated_tool_calls():
         )
 
     asyncio.run(scenario())
+
 
 def test_agent_can_use_two_different_tools():
     async def scenario():
@@ -109,8 +112,8 @@ def test_agent_can_use_two_different_tools():
             }),
             json.dumps({
                 "action": "tool",
-                "tool": "text_parser",
                 "arguments": {"text": "four is the answer"},
+                "tool": "text_parser",
                 "explanation": "Count the words in the supplied text.",
             }),
             json.dumps({
@@ -125,15 +128,46 @@ def test_agent_can_use_two_different_tools():
         )
 
         assert result["status"] == "completed"
-        
-        
         assert result["answer"] == (
             "The calculation is 4, and the text contains 4 words."
         )
-        assert [entry["tool"] for entry in result["trace"]
-                if entry.get("status") == "success"] == [
-            "calculator", "text_parser"
-        ]
+        assert [
+            entry["tool"]
+            for entry in result["trace"]
+            if entry.get("status") == "success"
+        ] == ["calculator", "text_parser"]
 
     asyncio.run(scenario())
 
+
+def test_agent_stops_at_configured_step_limit():
+    async def scenario():
+        first_action = json.dumps({
+            "action": "tool",
+            "tool": "calculator",
+            "arguments": {"expression": "2 + 2"},
+            "explanation": "Calculate the result.",
+        })
+
+        second_action = json.dumps({
+            "action": "tool",
+            "tool": "text_parser",
+            "arguments": {"text": "hello world"},
+            "explanation": "Count the words.",
+        })
+
+        llm = FakeLLM([
+            first_action,
+            second_action,
+            "I completed two tool steps, but the task may need more work.",
+        ])
+
+        result = await AgentEngine(llm=llm, max_steps=2).run(
+            "Calculate 2 + 2 and count the words in hello world."
+        )
+
+        assert result["status"] == "step_limit"
+        assert len(result["trace"]) == 2
+        assert len(llm.calls) == 3
+
+    asyncio.run(scenario())
