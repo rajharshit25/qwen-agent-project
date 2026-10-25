@@ -1,8 +1,9 @@
-﻿
+
+import json
 import uuid
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
 from backend.config import settings
@@ -78,6 +79,60 @@ async def chat(req: ChatRequest):
     return {"session_id": sid, "answer": answer}
 
 
+@router.post("/chat/stream")
+async def stream_chat(req: ChatRequest):
+    sid = req.session_id or str(uuid.uuid4())
+    history = get_history(sid)
+    messages = [
+        {"role": x["role"], "content": x["content"]}
+        for x in history
+    ]
+    messages.append({"role": "user", "content": req.message})
+
+    async def event_stream():
+        answer_parts = []
+
+        try:
+            async for chunk in OllamaClient().stream_chat(messages):
+                answer_parts.append(chunk)
+                yield (
+                    "event: token\n"
+                    f"data: {json.dumps({'text': chunk}, ensure_ascii=False)}\n\n"
+                )
+
+            answer = "".join(answer_parts).strip()
+
+            if not answer:
+                yield (
+                    "event: error\n"
+                    'data: {"detail":"Ollama returned an empty response."}\n\n'
+                )
+                return
+
+            add_message(sid, "user", req.message)
+            add_message(sid, "assistant", answer)
+
+            yield (
+                "event: done\n"
+                f"data: {json.dumps({'session_id': sid}, ensure_ascii=False)}\n\n"
+            )
+
+        except OllamaError as exc:
+            yield (
+                "event: error\n"
+                f"data: {json.dumps({'detail': str(exc)}, ensure_ascii=False)}\n\n"
+            )
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 @router.post("/agent")
 async def agent(req: AgentRequest):
     try:
@@ -124,7 +179,6 @@ async def upload_document(req: DocumentRequest):
         replace_document(req.name, chunks, embeddings)
         method = "Ollama embeddings + cosine similarity"
     except OllamaError:
-        # Keep document upload available if the embedding model is unavailable.
         replace_document(req.name, chunks)
 
     return {
@@ -143,7 +197,6 @@ async def query_documents(req: TextRequest):
         query_embeddings = await client.embed([req.text])
         query_embedding = query_embeddings[0]
     except OllamaError:
-        # Search falls back to SQLite lexical matching.
         pass
 
     found = search_documents(
