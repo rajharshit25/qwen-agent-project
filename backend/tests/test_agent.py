@@ -1,4 +1,4 @@
-﻿import asyncio
+import asyncio
 import json
 
 from backend.agent.engine import AgentEngine
@@ -403,6 +403,31 @@ def test_agent_handles_llm_failure_during_step_limit_response():
         assert any(
             entry.get("status") == "error"
             for entry in result["trace"]
+        )
+
+    asyncio.run(scenario())
+
+def test_agent_handles_llm_failure_during_main_loop():
+    class FailingLLM:
+        async def generate(
+            self,
+            prompt,
+            system="You are a helpful assistant.",
+            format=None,
+        ):
+            raise RuntimeError("Simulated Ollama connection failure")
+
+    async def scenario():
+        result = await AgentEngine(llm=FailingLLM()).run(
+            "Calculate 2 + 2."
+        )
+
+        assert result["status"] == "llm_error"
+        assert "AI model encountered an error" in result["answer"]
+        assert any(
+            item.get("status") == "error"
+            and item.get("reason") == "Model response generation failed"
+            for item in result["trace"]
         )
 
     asyncio.run(scenario())
