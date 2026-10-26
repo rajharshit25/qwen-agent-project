@@ -1,6 +1,8 @@
-﻿import os
+
+import os
 from dataclasses import dataclass
 from urllib.parse import urlparse
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -31,6 +33,7 @@ class Settings:
     )
     cors_origins: str = os.getenv("CORS_ORIGINS", "")
     brave_search_api_key: str = os.getenv("BRAVE_SEARCH_API_KEY", "")
+    qwen_agent_api_key: str = os.getenv("QWEN_AGENT_API_KEY", "")
     web_search_timeout_seconds: float = float(
         os.getenv("WEB_SEARCH_TIMEOUT_SECONDS", "8")
     )
@@ -60,14 +63,17 @@ class Settings:
             or (port is not None and not 1 <= port <= 65535)
         ):
             raise ValueError(
-                "OLLAMA_BASE_URL must be a valid HTTP(S) URL without credentials, query, or fragment"
+                "OLLAMA_BASE_URL must be a valid HTTP(S) URL "
+                "without credentials, query, or fragment"
             )
 
         if not self.ollama_model.strip():
             raise ValueError("OLLAMA_MODEL must not be empty")
 
         if self.ollama_timeout <= 0:
-            raise ValueError("OLLAMA_TIMEOUT_SECONDS must be greater than 0")
+            raise ValueError(
+                "OLLAMA_TIMEOUT_SECONDS must be greater than 0"
+            )
 
         if self.max_agent_steps < 1:
             raise ValueError("MAX_AGENT_STEPS must be at least 1")

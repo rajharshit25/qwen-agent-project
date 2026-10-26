@@ -1,12 +1,25 @@
-﻿from types import SimpleNamespace
+﻿from dataclasses import replace
+from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 
 import backend.api.routes as routes
 import backend.database.db as db_module
+import backend.main as main_module
+from backend.config import settings
 from backend.database.db import replace_document, search_documents
 from backend.llm.ollama_client import OllamaError
-from backend.main import app
+
+
+TEST_API_KEY = "test-api-key"
+
+
+def configure_test_api_key(monkeypatch):
+    test_settings = replace(
+        settings,
+        qwen_agent_api_key=TEST_API_KEY,
+    )
+    monkeypatch.setattr(main_module, "settings", test_settings)
 
 
 def isolate_database(monkeypatch, path):
@@ -20,6 +33,7 @@ def isolate_database(monkeypatch, path):
 def test_upload_document_falls_back_when_embeddings_fail(
     monkeypatch, tmp_path
 ):
+    configure_test_api_key(monkeypatch)
     isolate_database(monkeypatch, tmp_path / "upload-test.db")
 
     class FakeOllamaClient:
@@ -28,9 +42,10 @@ def test_upload_document_falls_back_when_embeddings_fail(
 
     monkeypatch.setattr(routes, "OllamaClient", FakeOllamaClient)
 
-    with TestClient(app) as client:
+    with TestClient(main_module.app) as client:
         response = client.post(
             "/api/documents",
+            headers={"X-API-Key": TEST_API_KEY},
             json={
                 "name": "notes.txt",
                 "text": "Python supports automated testing.",
@@ -51,6 +66,7 @@ def test_upload_document_falls_back_when_embeddings_fail(
 def test_document_query_falls_back_when_query_embedding_fails(
     monkeypatch, tmp_path
 ):
+    configure_test_api_key(monkeypatch)
     isolate_database(monkeypatch, tmp_path / "query-test.db")
 
     class FakeOllamaClient:
@@ -63,7 +79,7 @@ def test_document_query_falls_back_when_query_embedding_fails(
 
     monkeypatch.setattr(routes, "OllamaClient", FakeOllamaClient)
 
-    with TestClient(app) as client:
+    with TestClient(main_module.app) as client:
         replace_document(
             "notes.txt",
             ["Python supports automated testing."],
@@ -71,6 +87,7 @@ def test_document_query_falls_back_when_query_embedding_fails(
 
         response = client.post(
             "/api/documents/query",
+            headers={"X-API-Key": TEST_API_KEY},
             json={"text": "Explain automated testing"},
         )
 

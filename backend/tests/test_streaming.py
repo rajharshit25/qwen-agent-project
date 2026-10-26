@@ -1,10 +1,15 @@
 
 import json
+from dataclasses import replace
 
 from fastapi.testclient import TestClient
 
 import backend.api.routes as routes
-from backend.main import app
+import backend.main as main_module
+from backend.config import settings
+
+
+TEST_API_KEY = "test-api-key"
 
 
 class FakeStreamingClient:
@@ -12,25 +17,27 @@ class FakeStreamingClient:
         yield "Hello"
         yield " there!"
 
+
 class FailingStreamingClient:
     async def stream_chat(self, messages):
         yield "Partial answer"
         raise routes.OllamaError("Simulated Ollama failure")
 
 
+def configure_test_api_key(monkeypatch):
+    test_settings = replace(
+        settings,
+        qwen_agent_api_key=TEST_API_KEY,
+    )
+    monkeypatch.setattr(main_module, "settings", test_settings)
+
+
 def test_stream_chat_emits_tokens_and_done_event(monkeypatch):
+    configure_test_api_key(monkeypatch)
     saved_messages = []
 
-    monkeypatch.setattr(
-        routes,
-        "OllamaClient",
-        FakeStreamingClient,
-    )
-    monkeypatch.setattr(
-        routes,
-        "get_history",
-        lambda session_id: [],
-    )
+    monkeypatch.setattr(routes, "OllamaClient", FakeStreamingClient)
+    monkeypatch.setattr(routes, "get_history", lambda session_id: [])
     monkeypatch.setattr(
         routes,
         "add_message",
@@ -39,9 +46,10 @@ def test_stream_chat_emits_tokens_and_done_event(monkeypatch):
         ),
     )
 
-    with TestClient(app) as client:
+    with TestClient(main_module.app) as client:
         response = client.post(
             "/api/chat/stream",
+            headers={"X-API-Key": TEST_API_KEY},
             json={
                 "message": "Say hello",
                 "session_id": "stream-test",
@@ -70,6 +78,7 @@ def test_stream_chat_emits_tokens_and_done_event(monkeypatch):
 
 
 def test_stream_chat_emits_error_when_ollama_fails(monkeypatch):
+    configure_test_api_key(monkeypatch)
     saved_messages = []
 
     monkeypatch.setattr(
@@ -77,11 +86,7 @@ def test_stream_chat_emits_error_when_ollama_fails(monkeypatch):
         "OllamaClient",
         FailingStreamingClient,
     )
-    monkeypatch.setattr(
-        routes,
-        "get_history",
-        lambda session_id: [],
-    )
+    monkeypatch.setattr(routes, "get_history", lambda session_id: [])
     monkeypatch.setattr(
         routes,
         "add_message",
@@ -90,9 +95,10 @@ def test_stream_chat_emits_error_when_ollama_fails(monkeypatch):
         ),
     )
 
-    with TestClient(app) as client:
+    with TestClient(main_module.app) as client:
         response = client.post(
             "/api/chat/stream",
+            headers={"X-API-Key": TEST_API_KEY},
             json={
                 "message": "Test failure",
                 "session_id": "stream-error-test",
@@ -109,10 +115,13 @@ def test_stream_chat_emits_error_when_ollama_fails(monkeypatch):
     assert saved_messages == []
 
 
-def test_stream_chat_rejects_blank_message():
-    with TestClient(app) as client:
+def test_stream_chat_rejects_blank_message(monkeypatch):
+    configure_test_api_key(monkeypatch)
+
+    with TestClient(main_module.app) as client:
         response = client.post(
             "/api/chat/stream",
+            headers={"X-API-Key": TEST_API_KEY},
             json={"message": "   "},
         )
 

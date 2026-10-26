@@ -9,3 +9,5 @@ data/
 
 # Local backup files
 *.bak
+
+.docker-api-key.env

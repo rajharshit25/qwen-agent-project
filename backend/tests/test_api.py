@@ -1,7 +1,24 @@
+from dataclasses import replace
+
+from fastapi.testclient import TestClient
 from pydantic import ValidationError
 import pytest
 
 from backend.api.routes import ChatRequest
+import backend.api.routes as routes
+import backend.main as main_module
+from backend.config import settings
+
+
+TEST_API_KEY = "test-api-key"
+
+
+def configure_test_api_key(monkeypatch):
+    test_settings = replace(
+        settings,
+        qwen_agent_api_key=TEST_API_KEY,
+    )
+    monkeypatch.setattr(main_module, "settings", test_settings)
 
 
 def test_chat_request_accepts_valid_session_id():
@@ -36,11 +53,10 @@ def test_document_request_rejects_text_over_100000_characters():
 
     with pytest.raises(ValidationError):
         DocumentRequest(name="notes.txt", text="a" * 100001)
-def test_agent_returns_503_when_model_generation_fails(monkeypatch):
-    from fastapi.testclient import TestClient
 
-    import backend.api.routes as routes
-    from backend.main import app
+
+def test_agent_returns_503_when_model_generation_fails(monkeypatch):
+    configure_test_api_key(monkeypatch)
 
     class FailingAgent:
         async def run(self, goal, page_text=""):
@@ -62,9 +78,10 @@ def test_agent_returns_503_when_model_generation_fails(monkeypatch):
 
     monkeypatch.setattr(routes, "AgentEngine", FailingAgent)
 
-    with TestClient(app) as client:
+    with TestClient(main_module.app) as client:
         response = client.post(
             "/api/agent",
+            headers={"X-API-Key": TEST_API_KEY},
             json={"goal": "Calculate 2 + 2."},
         )
 
