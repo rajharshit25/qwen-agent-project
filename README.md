@@ -5,6 +5,7 @@
   <img src="https://img.shields.io/badge/LLM-Qwen-2563EB?style=for-the-badge" alt="Qwen"/>
   <img src="https://img.shields.io/badge/Inference-Local%20Ollama-0F766E?style=for-the-badge" alt="Local inference"/>
   <img src="https://img.shields.io/badge/Backend-FastAPI-009688?style=for-the-badge" alt="FastAPI"/>
+  <img src="https://img.shields.io/badge/Browser-Chrome%20Extension-4285F4?style=for-the-badge" alt="Chrome extension"/>
   <img src="https://img.shields.io/badge/Deployment-Docker-2496ED?style=for-the-badge" alt="Docker"/>
 </p>
 
@@ -13,7 +14,7 @@
 </p>
 
 <p align="center">
-  A locally powered intelligent assistant that combines large language models, tool-based agent execution, document retrieval, conversational memory, and API-based access in one modular system.
+  A locally powered intelligent assistant that combines large language models, tool-based agent execution, document retrieval, conversational memory, API-based access, and a Chrome browser extension in one modular system.
 </p>
 
 <p align="center">
@@ -37,6 +38,7 @@
 | Primary Language | Python |
 | Main LLM Runtime | Ollama |
 | Backend Framework | FastAPI |
+| Browser Interface | Chrome Extension |
 | Deployment | Local execution and Docker |
 | Project Repository | [rajharshit25/qwen-agent-project](https://github.com/rajharshit25/qwen-agent-project) |
 
@@ -48,9 +50,13 @@ Traditional chatbots generally respond to a user's message using a single langua
 
 This project implements a modular AI assistant using the Qwen family of language models. It provides a local inference workflow, a Python backend, tool-based agent functionality, document retrieval, session-based conversation history, and HTTP API endpoints.
 
+The project also includes a Chrome browser extension that provides a convenient popup interface for asking questions and summarizing the content of the current webpage through the FastAPI backend.
+
+The extension uses a Cyber Premium visual design with selectable themes, interactive response cards, loading and status indicators, and a live date-and-time display.
+
 The system is designed to explore how an AI assistant can move from simply generating text toward completing structured tasks and using relevant information to answer questions.
 
-### ✨ Key capabilities
+### ✨ Key Capabilities
 
 - 🧠 **Local language-model inference:** Run supported Qwen models through Ollama.
 - 🛠️ **Agentic task execution:** Use the agent engine to coordinate supported tools and task steps.
@@ -59,6 +65,10 @@ The system is designed to explore how an AI assistant can move from simply gener
 - 💬 **Conversation history:** Maintain and retrieve conversations by session ID.
 - ⚡ **Streaming responses:** Deliver chat output progressively through a streaming API.
 - 🔐 **API-key authentication:** Protect non-public API routes with an `X-API-Key` header.
+- 🧩 **Chrome browser extension:** Ask questions and summarize webpage content through the browser popup.
+- 🎨 **Cyber Premium interface:** Dark styling with neon-inspired accents, animations, and selectable themes.
+- 🌈 **Theme selection:** Switch between Cyber Neon, Midnight Purple, Emerald Matrix, and Light Mode.
+- 🕒 **Live date-and-time display:** Display the current date and time in the extension popup.
 - 🐳 **Containerized backend:** Build and run the API using Docker.
 - 🧪 **Automated testing:** Validate API behavior, agent functionality, document routes, and streaming.
 
@@ -76,8 +86,11 @@ The project addresses these challenges by developing a modular system that combi
 4. Session-aware conversation management.
 5. A secured API layer.
 6. Container-based backend deployment.
+7. A browser extension for direct interaction with the assistant.
 
 The objective is to demonstrate the design, integration, and evaluation of a practical agentic AI application.
+
+---
 
 ## 🎯 3. Project Objectives
 
@@ -88,6 +101,8 @@ The objective is to demonstrate the design, integration, and evaluation of a pra
 - Develop semantic document retrieval using embeddings.
 - Support conversational context and streaming responses.
 - Add API authentication and containerized deployment.
+- Develop a Chrome extension for asking questions and summarizing webpages.
+- Provide a responsive popup interface with selectable themes and clear response states.
 - Test the system's functional correctness and API performance.
 - Document the system for academic presentation and future development.
 
@@ -99,10 +114,11 @@ The following diagram illustrates the major components and their relationships.
 
 ```mermaid
 flowchart TB
-    U(["👤 User / Client"])
+    U(["👤 User"])
 
     subgraph ACCESS["Access Layer"]
-        EXT["Browser Extension or API Client"]
+        EXT["Chrome Browser Extension"]
+        API_CLIENT["API Client / Swagger UI"]
         AUTH["API Key Authentication"]
     end
 
@@ -112,6 +128,7 @@ flowchart TB
         AGENT["Agent Engine"]
         HISTORY["Session and History Management"]
         DOCAPI["Document API"]
+        SUMMARY["Summarization Endpoint"]
     end
 
     subgraph INTELLIGENCE["AI and Retrieval Layer"]
@@ -123,19 +140,23 @@ flowchart TB
 
     subgraph SERVICES["Runtime and Storage"]
         OLLAMA["Ollama Runtime"]
-        DB[("Application Database")]
+        DB[("Application Database / Storage")]
         FILES[("Document Storage")]
         WEB["Optional Brave Web Search"]
     end
 
     U --> EXT
-    U --> API
+    U --> API_CLIENT
+
     EXT --> AUTH
+    API_CLIENT --> AUTH
     AUTH --> API
+
     API --> CHAT
     API --> AGENT
     API --> HISTORY
     API --> DOCAPI
+    API --> SUMMARY
 
     CHAT --> QWEN
     AGENT --> QWEN
@@ -144,20 +165,22 @@ flowchart TB
 
     QWEN --> OLLAMA
     EMB --> OLLAMA
+
     DOCAPI --> FILES
     DOCAPI --> EMB
     EMB --> RET
     RET --> CHAT
+
     HISTORY --> DB
 ```
 
-**Architecture note:** This is a logical overview, not a claim that every request passes through every component. Exact execution depends on the endpoint, task, configured tools, and available models. The browser-extension interface is a client; the FastAPI backend provides the API functionality.
+**Architecture note:** This is a logical overview, not a claim that every request passes through every component. Exact execution depends on the endpoint, task, configured tools, and available models. The browser extension acts as a client, while the FastAPI backend provides the API functionality.
 
-### 🔹 Component responsibilities
+### 🔹 Component Responsibilities
 
 | Component | Responsibility |
 |---|---|
-| Client / Extension | Sends user requests and presents responses |
+| Chrome Extension | Provides the popup interface for questions and webpage summarization |
 | FastAPI | Exposes HTTP endpoints and validates requests |
 | Authentication | Checks API-key access for protected routes |
 | Agent Engine | Coordinates supported tools and task execution |
@@ -171,18 +194,18 @@ flowchart TB
 
 ## 🔄 5. How the System Works
 
-### A. Standard chat workflow
+### A. Standard Chat Workflow
 
 ```mermaid
 sequenceDiagram
     actor User
-    participant Client
+    participant Client as Extension or API Client
     participant API as FastAPI
     participant Model as Ollama / Qwen
     participant History as Session Storage
 
     User->>Client: Enter a question
-    Client->>API: Send authenticated request
+    Client->>API: Send request
     API->>API: Validate request and API key
     API->>History: Load relevant session context
     API->>Model: Generate response
@@ -199,7 +222,7 @@ sequenceDiagram
 5. The backend processes the response and updates conversation history where applicable.
 6. The response is returned to the client.
 
-### B. Agentic workflow
+### B. Agentic Workflow
 
 An agentic request can involve more than a direct language-model response.
 
@@ -220,7 +243,7 @@ flowchart TD
 
 The agent engine coordinates the task and its supported tools. Tool availability and task completion depend on the application's configuration and the request.
 
-### C. Document question-answering workflow
+### C. Document Question-Answering Workflow
 
 This functionality follows the principles of retrieval-augmented generation (RAG).
 
@@ -229,15 +252,42 @@ flowchart LR
     A["📄 Document"] --> B["Extract Text"]
     B --> C["Create Embeddings"]
     C --> D[("Document Index / Storage")]
+
     E["❓ User Question"] --> F["Question Embedding"]
     F --> G["Similarity Retrieval"]
     D --> G
+
     G --> H["Relevant Context"]
     H --> I["Qwen Model"]
     I --> J["Context-Aware Answer"]
 ```
 
 The document workflow stores document content and uses embeddings to find relevant information for a query. A lexical retrieval fallback is available when embedding-based retrieval cannot be used.
+
+### D. Chrome Extension Workflow
+
+```mermaid
+flowchart TD
+    USER["👤 User"] --> POPUP["Chrome Extension Popup"]
+    POPUP --> ACTION{"Choose an Action"}
+    ACTION -->|Ask Qwen| CHAT["Chat API"]
+    ACTION -->|Summarize Page| CONTENT["Read Current Webpage Content"]
+    CONTENT --> SUMMARY["Summarization API"]
+    CHAT --> BACKEND["FastAPI Backend"]
+    SUMMARY --> BACKEND
+    BACKEND --> OLLAMA["Ollama / Qwen"]
+    OLLAMA --> BACKEND
+    BACKEND --> RESPONSE["Generated Response"]
+    RESPONSE --> POPUP
+```
+
+1. The user opens the extension popup in Chrome.
+2. The user enters a question or chooses to summarize the current webpage.
+3. The extension sends the relevant request to the configured backend.
+4. The backend processes the request using the appropriate functionality and configured model.
+5. The extension displays the response.
+
+The exact request flow depends on the selected action and the current implementation.
 
 ---
 
@@ -255,8 +305,9 @@ The document workflow stores document content and uses embeddings to find releva
 | 🐳 Docker | Backend containerization |
 | 🧪 Pytest | Automated testing |
 | 🌐 Cloudflare Tunnel | Temporary public access for demonstrations, when enabled |
+| 🧩 JavaScript, HTML, CSS | Chrome extension interface |
 
-### Models used during development
+### Models Used During Development
 
 - `qwen2.5:1.5b` — lightweight language model.
 - `qwen3:4b` — alternative Qwen model for supported tasks.
@@ -275,36 +326,40 @@ Install the following:
 - Python and pip.
 - Git.
 - Ollama.
+- Google Chrome, for the browser extension.
 - Docker Desktop, if you want to run the containerized backend.
 
-### Step 1 — Clone the repository
+### Step 1 — Clone the Repository
 
 ```powershell
 git clone https://github.com/rajharshit25/qwen-agent-project.git
+
 cd qwen-agent-project
 ```
 
-### Step 2 — Create a virtual environment
+### Step 2 — Create a Virtual Environment
 
 ```powershell
 python -m venv .venv
+
 .\.venv\Scripts\Activate.ps1
 ```
 
 If PowerShell blocks activation, you can use the environment's Python executable directly instead.
 
-### Step 3 — Install dependencies
+### Step 3 — Install Dependencies
 
 ```powershell
 python -m pip install -r requirements.txt
 ```
 
-### Step 4 — Download the required Ollama models
+### Step 4 — Download the Required Ollama Models
 
 Open a terminal with Ollama installed and run:
 
 ```powershell
 ollama pull qwen2.5:1.5b
+
 ollama pull nomic-embed-text
 ```
 
@@ -322,7 +377,7 @@ ollama list
 
 Ensure the Ollama service is running before starting the backend.
 
-### Step 5 — Configure environment variables
+### Step 5 — Configure Environment Variables
 
 The application supports configuration through environment variables. The API key is particularly important.
 
@@ -340,7 +395,7 @@ $env:QWEN_AGENT_API_KEY = (Get-Content .env | Where-Object { $_ -match '^QWEN_AG
 
 Keep `.env` private. Never commit it to Git or publish the key in screenshots.
 
-### Step 6 — Start the backend
+### Step 6 — Start the Backend
 
 From the repository root:
 
@@ -350,11 +405,38 @@ From the repository root:
 
 Open the API documentation in your browser:
 
-- API documentation: http://127.0.0.1:8000/docs
-- Health check: http://127.0.0.1:8000/health
-- API health: http://127.0.0.1:8000/api/health
+- API documentation: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+- Health check: [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
+- API health: [http://127.0.0.1:8000/api/health](http://127.0.0.1:8000/api/health)
 
 The health endpoints are public. Other protected endpoints require a valid API key.
+
+### Step 7 — Load the Chrome Extension
+
+The project includes a Chrome browser extension that connects its popup interface to the local Qwen Agent backend.
+
+1. Start the FastAPI backend and ensure it is accessible at `http://127.0.0.1:8000`.
+2. Open Google Chrome.
+3. Navigate to `chrome://extensions`.
+4. Enable **Developer mode**.
+5. Click **Load unpacked**.
+6. Select the project's `extension` directory.
+7. Open the Qwen Web Assistant extension from Chrome's Extensions menu.
+8. Configure the API key in the extension if required by the current implementation.
+9. Test **Ask Qwen** with a simple question.
+10. Open an article webpage and test **Summarize Page**.
+
+The popup includes a Cyber Premium visual design, selectable themes, loading and response states, a live date-and-time display, and the `TECHNICAL SEMINAR PROJECT` label.
+
+**Important:** Keep the backend running while using the extension. The API address configured in the extension must match the address at which the backend is running.
+
+**Troubleshooting tips:**
+
+- If the extension cannot connect, check that the backend is running.
+- If an API request is rejected, verify that the extension is configured with the correct API key.
+- If the extension does not appear, return to `chrome://extensions` and check for errors.
+- If webpage summarization fails, confirm that the current page contains readable content and that the extension has the required access.
+- Do not publish API keys or other secrets.
 
 ---
 
@@ -362,7 +444,7 @@ The health endpoints are public. Other protected endpoints require a valid API k
 
 The repository includes a `Dockerfile` for building the backend image.
 
-### Build the image
+### Build the Image
 
 From the project root:
 
@@ -370,7 +452,7 @@ From the project root:
 docker build -t qwen-agent-project:latest .
 ```
 
-### Run the container
+### Run the Container
 
 The backend container needs access to the Ollama service on the host. On Docker Desktop for Windows, `host.docker.internal` can be used to reach host services.
 
@@ -382,17 +464,18 @@ Check the container:
 
 ```powershell
 docker ps
+
 docker logs qwen-agent-api
 ```
 
 Open the Docker-hosted API:
 
-- API documentation: http://127.0.0.1:8001/docs
-- Health check: http://127.0.0.1:8001/health
+- API documentation: [http://127.0.0.1:8001/docs](http://127.0.0.1:8001/docs)
+- Health check: [http://127.0.0.1:8001/health](http://127.0.0.1:8001/health)
 
 **Security:** Do not expose the API publicly without authentication and appropriate deployment controls. The example is intended for local development and demonstration.
 
-### Stop the container
+### Stop the Container
 
 ```powershell
 docker stop qwen-agent-api
@@ -428,13 +511,13 @@ The FastAPI backend exposes the following implemented routes.
 
 For exact request and response schemas, consult the live Swagger documentation at `/docs`. The API may evolve as the project develops.
 
-### Example: Health check
+### Example: Health Check
 
 ```powershell
 Invoke-RestMethod http://127.0.0.1:8000/health
 ```
 
-### Example: Authenticated API request
+### Example: Authenticated API Request
 
 The following example demonstrates the authentication header. Replace the example route and JSON body with the schema shown in `/docs`.
 
@@ -459,7 +542,7 @@ If the endpoint uses a different request schema in the current version, follow t
 
 This section can serve as the practical demonstration sequence during a technical seminar.
 
-### Demonstration 1 — Local AI chat
+### Demonstration 1 — Local AI Chat
 
 **Objective:** Show that the application can communicate with a locally running Qwen model.
 
@@ -470,11 +553,12 @@ This section can serve as the practical demonstration sequence during a technica
 5. Show the generated response.
 
 **Suggested prompt:**
-“Explain the difference between a traditional chatbot and an agentic AI system.”
+
+> Explain the difference between a traditional chatbot and an agentic AI system.
 
 **What to explain:** The API receives a request, the backend prepares the model input, Ollama performs inference, and the backend returns the response.
 
-### Demonstration 2 — Agentic task execution
+### Demonstration 2 — Agentic Task Execution
 
 **Objective:** Demonstrate the agent engine and supported tools.
 
@@ -485,7 +569,7 @@ This section can serve as the practical demonstration sequence during a technica
 
 **Important:** Use a task verified against the actual tool configuration. Do not claim that every request automatically uses tools.
 
-### Demonstration 3 — Document-based question answering
+### Demonstration 3 — Document-Based Question Answering
 
 **Objective:** Demonstrate retrieval from user-provided content.
 
@@ -494,7 +578,7 @@ This section can serve as the practical demonstration sequence during a technica
 3. Compare the response with the information in the document.
 4. Explain embedding generation, similarity search, and retrieval.
 
-### Demonstration 4 — Streaming response
+### Demonstration 4 — Streaming Response
 
 **Objective:** Show progressive delivery of generated text.
 
@@ -503,7 +587,7 @@ This section can serve as the practical demonstration sequence during a technica
 3. Observe the response as it arrives.
 4. Explain why streaming can improve perceived responsiveness.
 
-### Demonstration 5 — API security
+### Demonstration 5 — API Security
 
 **Objective:** Show that protected endpoints require authentication.
 
@@ -512,7 +596,7 @@ This section can serve as the practical demonstration sequence during a technica
 3. Send the request with a valid `X-API-Key` header.
 4. Explain why credentials should not be exposed in public repositories or logs.
 
-### Demonstration 6 — Docker deployment
+### Demonstration 6 — Docker Deployment
 
 **Objective:** Demonstrate containerized backend execution.
 
@@ -522,7 +606,25 @@ This section can serve as the practical demonstration sequence during a technica
 4. Submit an authenticated request.
 5. Explain the separation between the backend container and the host's Ollama runtime.
 
-### Optional Demonstration 7 — Temporary public access
+### Demonstration 7 — Chrome Web Assistant
+
+**Objective:** Demonstrate the Chrome extension interface and its integration with the Qwen Agent backend.
+
+1. Start Ollama and ensure the required model is available.
+2. Start the FastAPI backend.
+3. Open a webpage containing informational content.
+4. Open the Qwen Web Assistant Chrome extension.
+5. Enter a question and click **Ask Qwen**.
+6. Show the generated answer in the extension popup.
+7. Click **Summarize Page** and display the summary.
+8. Demonstrate the theme selector.
+9. Point out the loading and response states, live date-and-time display, and project label.
+
+**What to explain:** The Chrome extension provides the user interface, while the FastAPI backend handles requests and communicates with the configured language model. The summarization workflow uses webpage content supplied by the extension.
+
+**Demonstration note:** Show only features that have been tested successfully in the current implementation.
+
+### Optional Demonstration 8 — Temporary Public Access
 
 A Cloudflare Tunnel can provide a temporary public URL for testing the local API.
 
@@ -534,7 +636,7 @@ Use this only when needed. The tunnel depends on the local service and tunnel pr
 
 Testing is important for checking the correctness of API routes, authentication, streaming, document functionality, and agent behavior.
 
-### Automated testing
+### Automated Testing
 
 The latest full test run during development reported:
 
@@ -553,11 +655,11 @@ Run the test suite using:
 .\.venv\Scripts\python.exe -m pytest backend\tests -q
 ```
 
-### API performance evaluation
+### API Performance Evaluation
 
 A previous local Docker API evaluation produced the following results:
 
-| Metric | Recorded result |
+| Metric | Recorded Result |
 |---|---:|
 | Requests evaluated | 10 |
 | Successful requests | 10 |
@@ -568,7 +670,7 @@ A previous local Docker API evaluation produced the following results:
 
 These figures represent a specific development-time test run, not a general performance guarantee. Results may vary with hardware, model selection, network conditions, endpoint behavior, and request complexity.
 
-### Evaluation dimensions
+### Evaluation Dimensions
 
 For a technical seminar, discuss these dimensions separately:
 
@@ -578,6 +680,7 @@ For a technical seminar, discuss these dimensions separately:
 - **Latency:** How long do tested requests take?
 - **Retrieval relevance:** Does document retrieval return content relevant to the question?
 - **Agent behavior:** Does the engine complete the supported task using the configured tools?
+- **Extension integration:** Can the extension send requests to the backend and display the returned responses?
 - **Deployment:** Can the API be started and tested through Docker?
 
 Only report measurements that have actually been observed during testing.
@@ -596,6 +699,8 @@ Security is a key consideration when building a locally hosted AI assistant.
 - 🌐 Optional external tools, such as web search, may still communicate with external services.
 - 🔒 A public tunnel should be used cautiously and only when needed.
 - 📦 Docker packages the backend, but containerization alone does not make an application secure.
+- 🧩 The extension must be configured with the appropriate backend address and credentials.
+- 🔐 API keys should not be included in public screenshots, documentation, source files, or commits.
 
 Do not publish API keys, private documents, personal data, or unredacted authentication headers in seminar screenshots.
 
@@ -610,22 +715,45 @@ qwen-agent-project/
 │
 ├── backend/
 │   ├── agent/
-│   │   └── engine.py          # Agent execution logic
-│   ├── tests/                 # Automated backend tests
-│   ├── config.py              # Application configuration
-│   └── main.py                # FastAPI application and routes
+│   │   └── engine.py
+│   ├── api/
+│   │   └── routes.py
+│   ├── tools/
+│   │   └── registry.py
+│   ├── tests/
+│   ├── config.py
+│   └── main.py
+│
+├── extension/
+│   ├── manifest.json
+│   ├── content/
+│   │   └── content.js
+│   └── popup/
+│       ├── popup.html
+│       ├── popup.css
+│       └── popup.js
 │
 ├── scripts/
-│   └── evaluate_api.py        # API evaluation utility
+│   └── evaluate_api.py
 │
-├── Dockerfile                 # Container image definition
-├── .dockerignore              # Files excluded from Docker builds
-├── .gitignore                 # Files excluded from Git
-├── requirements.txt           # Python dependencies
-└── README.md                  # Project documentation
+├── Dockerfile
+├── .dockerignore
+├── .gitignore
+├── requirements.txt
+└── README.md
 ```
 
-Additional files may exist for document retrieval, tools, the client or browser extension, persistence, and configuration.
+Additional files may exist for document retrieval, persistence, configuration, and supporting functionality.
+
+### Chrome Extension Files
+
+| File | Purpose |
+|---|---|
+| `extension/manifest.json` | Defines the Chrome extension configuration and permissions |
+| `extension/content/content.js` | Supports webpage-related content handling |
+| `extension/popup/popup.html` | Defines the popup structure |
+| `extension/popup/popup.css` | Defines the popup design, themes, and animations |
+| `extension/popup/popup.js` | Handles popup interactions and communication with the backend |
 
 ---
 
@@ -640,6 +768,8 @@ The project brings several engineering components together:
 5. **Access control:** API-key authentication protects non-public endpoints.
 6. **Containerization:** Docker packages the backend and its dependencies.
 7. **Testing and evaluation:** Automated tests and a request-evaluation utility support validation.
+8. **Browser integration:** A Chrome extension provides direct access to selected assistant functions from the browser.
+9. **User interface design:** A Cyber Premium popup interface includes theme selection, response states, and visual feedback.
 
 The main contribution is the integration of these components into a practical, testable AI application rather than the creation of a new foundation language model.
 
@@ -654,6 +784,8 @@ The main contribution is the integration of these components into a practical, t
 - A temporary tunnel is not a permanent hosting solution.
 - API-key authentication is not a substitute for comprehensive production security.
 - The recorded evaluation covers a limited development-time workload.
+- Browser extension functionality depends on the backend being reachable and correctly configured.
+- Webpage summarization depends on the availability of readable page content and the extension's permissions.
 
 ---
 
@@ -665,7 +797,7 @@ Possible extensions include:
 - 🧠 Improved model selection and task routing.
 - 📚 More document formats and retrieval evaluation.
 - 🧾 Better source attribution for document-grounded answers.
-- 🖥️ Improved client and browser-extension interface.
+- 🖥️ Further improvements to the browser-extension interface.
 - 🔐 Role-based authorization, rate limiting, and stronger deployment controls.
 - ☁️ Persistent hosting with TLS, monitoring, and managed secrets.
 - 📊 Observability for model latency, tool calls, errors, and token usage.
@@ -680,17 +812,11 @@ These are proposed improvements and should not be presented as already implement
 
 The Qwen-Based Agentic AI System for Intelligent Web Assistance demonstrates how a locally hosted language model can be integrated with an agent engine, document retrieval, conversation history, streaming APIs, and containerized backend services.
 
-The project provides a foundation for exploring practical agentic AI engineering: connecting models with tools, handling user requests through APIs, managing context, and evaluating the resulting application.
+The Chrome browser extension adds a convenient interface for interacting with selected assistant capabilities directly from the browser. Its Ask Qwen and Summarize Page workflows connect the extension to the backend, while its theme options and response states provide a user-facing interface for demonstrations.
 
-By combining local inference with modular backend components, the system offers a useful platform for academic demonstration, experimentation, and further development.
+The project provides a foundation for exploring practical agentic AI engineering: connecting models with tools, handling user requests through APIs, managing context, integrating a browser interface, and evaluating the resulting application.
 
----
-
-
-
-### Suggested opening statement
-
-> “Our project focuses on designing and implementing a local agentic AI assistant using Qwen models. Rather than limiting the system to basic text generation, we integrate a backend API, supported tool execution, document retrieval, conversation history, streaming responses, and Docker-based deployment. The objective is to demonstrate how these components work together in a practical AI application.”
+By combining local inference with modular backend components and browser-based access, the system offers a platform for academic demonstration, experimentation, and further development.
 
 ---
 
@@ -701,5 +827,5 @@ By combining local inference with modular backend components, the system offers 
 If you find this project useful for learning about local LLM applications, agentic systems, or retrieval-augmented generation, feel free to explore the source code.
 
 <p align="center">
-  <strong>🧠 Local Intelligence · 🛠️ Agentic Workflows · 🔒 Controlled API Access</strong>
+  <strong>🧠 Local Intelligence · 🛠️ Agentic Workflows · 🔒 Controlled API Access · 🌐 Browser Assistance</strong>
 </p>

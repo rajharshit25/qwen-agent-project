@@ -1,14 +1,15 @@
 
 import json
+import re
 import uuid
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
-from backend.config import settings
 from backend.llm.ollama_client import OllamaClient, OllamaError
 from backend.agent.engine import AgentEngine
+from backend.tools.registry import run_tool
 from backend.database.db import (
     add_message,
     get_history,
@@ -136,6 +137,40 @@ async def stream_chat(req: ChatRequest):
 @router.post("/agent")
 async def agent(req: AgentRequest):
     try:
+        # Use the real system clock for direct date/time questions.
+        time_question = re.fullmatch(
+            r"\s*(?:"
+            r"what(?:'s| is) the (?:current )?time(?: in (?:pune|india))?"
+            r"|what time is it(?: in (?:pune|india))?"
+            r"|what(?:'s| is) today's date"
+            r"|what is the current date"
+            r"|what date is it"
+            r"|what day is it"
+            r"|current time(?: in (?:pune|india))?"
+            r"|current date"
+            r"|today's date"
+            r"|today's day"
+            r"|time in (?:pune|india)"
+            r")\s*[?.!]*\s*",
+            req.goal,
+            re.IGNORECASE,
+        )
+
+        if time_question and not req.page_text.strip():
+            result = run_tool("current_time", {})
+            return {
+                "status": "success",
+                "answer": result,
+                "trace": [
+                    {
+                        "step": 1,
+                        "tool": "current_time",
+                        "ok": True,
+                        "result": result,
+                    }
+                ],
+            }
+
         result = await AgentEngine().run(req.goal, req.page_text)
 
         if result.get("status") == "llm_error":

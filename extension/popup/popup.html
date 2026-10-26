@@ -1,2 +1,140 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Qwen Assistant</title><link rel="stylesheet" href="popup.css"></head>
-<body><main><h1>Qwen Web Assistant</h1><p id="status">Local backend: 127.0.0.1:8000</p><textarea id="question" placeholder="Ask a question (e.g. summarize this page)"></textarea><div class="buttons"><button id="summarize">Summarize page</button><button id="ask">Ask Qwen</button></div><pre id="answer" aria-live="polite"></pre><details><summary>Execution trace</summary><pre id="trace"></pre></details></main><script src="popup.js"></script></body></html>
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Qwen Web Assistant</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+
+<body data-theme="cyber-neon">
+  <main class="app">
+    <header class="app-header">
+      <div class="brand-icon" aria-hidden="true">✦</div>
+
+      <div class="brand-copy">
+        <h1>Qwen <span>Web Assistant</span></h1>
+        <p class="subtitle">YOUR LOCAL AI COPILOT</p>
+      </div>
+
+      <div class="connection-indicator" title="Local assistant">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span class="connection-label">LOCAL</span>
+      </div>
+    </header>
+
+    <section class="datetime-card" aria-label="Current date and time">
+      <div class="datetime-main">
+        <span class="datetime-label">LOCAL SYSTEM TIME</span>
+        <div id="clockTime" class="clock-time">--:--:--</div>
+        <div id="clockDay" class="clock-day">Loading day...</div>
+        <div id="clockDate" class="clock-date">Loading date...</div>
+      </div>
+      <div class="clock-indicator" aria-hidden="true">◷</div>
+    </section>
+
+    <div class="project-caption">
+      <span class="project-caption-dot"></span>
+      TECHNICAL SEMINAR PROJECT
+    </div>
+
+    <p id="status" class="status-bar" role="status" aria-live="polite">
+      <span class="status-symbol" aria-hidden="true">◈</span>
+      <span class="status-message">Local backend: 127.0.0.1:8000</span>
+    </p>
+
+    <section class="theme-section">
+      <label for="themeSelect">Interface theme</label>
+      <div class="select-wrap">
+        <span class="field-icon" aria-hidden="true">◐</span>
+        <select id="themeSelect">
+          <option value="cyber-neon">Cyber Neon</option>
+          <option value="midnight-purple">Midnight Purple</option>
+          <option value="emerald-matrix">Emerald Matrix</option>
+          <option value="light">Light Mode</option>
+        </select>
+      </div>
+    </section>
+
+    <section class="form-section">
+      <label for="apiKey">Local API key</label>
+      <input
+        id="apiKey"
+        type="password"
+        placeholder="Enter your local API key"
+        autocomplete="off"
+        spellcheck="false"
+        aria-describedby="apiKeyHint"
+      >
+      <p id="apiKeyHint" class="hint">
+        <span aria-hidden="true">▣</span>
+        Saved in your browser. Never share your key.
+      </p>
+    </section>
+
+    <section class="form-section question-section">
+      <label for="question">Your question</label>
+      <textarea
+        id="question"
+        placeholder="Ask Qwen anything, or ask about this webpage…"
+        rows="4"
+      ></textarea>
+      <p class="input-caption">YOUR PROMPT <span>→</span> LOCAL QWEN</p>
+    </section>
+
+    <div class="buttons">
+      <button id="summarize" class="button button-secondary" type="button">
+        <span class="button-icon" aria-hidden="true">▤</span>
+        <span>Summarize page</span>
+      </button>
+
+      <button id="ask" class="button button-primary" type="button">
+        <span class="button-icon" aria-hidden="true">✧</span>
+        <span>Ask Qwen</span>
+      </button>
+    </div>
+
+    <section class="result-section">
+      <div class="section-heading">
+        <div class="result-title">
+          <span class="section-icon" aria-hidden="true">◈</span>
+          <div>
+            <h2>AI Response</h2>
+            <p class="section-subtitle">GENERATED LOCALLY</p>
+          </div>
+        </div>
+
+        <span class="response-badge">QWEN</span>
+      </div>
+
+      <div id="answer" data-state="idle" aria-live="polite">
+        <div class="empty-state">
+          <span class="empty-icon" aria-hidden="true">✧</span>
+          <p class="empty-title">Ready when you are</p>
+          <p class="empty-copy">
+            Ask a question or summarize the current page to get started.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <details class="trace-section">
+      <summary>
+        <span class="trace-summary-icon" aria-hidden="true">⌘</span>
+        <span>Execution trace</span>
+        <span class="trace-chevron" aria-hidden="true">⌄</span>
+      </summary>
+      <pre id="trace"></pre>
+    </details>
+
+    <footer class="app-footer">
+      <span><span class="footer-dot"></span> LOCAL INFERENCE</span>
+      <span>POWERED BY QWEN</span>
+    </footer>
+  </main>
+
+  <script src="popup.js"></script>
+</body>
+</html>
