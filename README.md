@@ -686,22 +686,7 @@ By combining local inference with modular backend components, the system offers 
 
 ---
 
-## 🎤 18. Technical Seminar Presentation Outline
 
-A suggested 8–10 slide presentation:
-
-| Slide | Topic |
-|---|---|
-| 1 | Title, institution, academic year |
-| 2 | Problem statement and motivation |
-| 3 | Project objectives and scope |
-| 4 | Technology stack |
-| 5 | System architecture |
-| 6 | Agentic workflow and RAG |
-| 7 | Live demonstration |
-| 8 | Testing and evaluation |
-| 9 | Limitations and future scope |
-| 10 | Conclusion and Q&A |
 
 ### Suggested opening statement
 
